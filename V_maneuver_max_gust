@@ -1,0 +1,55 @@
+# This code computes the Manuever Speed (V-n diagram limits) and Gust Speed give Max Loading Factor
+
+import math as m
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+
+#custom function to get P, T, rho given h in Earth standard dry air atmosphere model
+
+g0 = 32.174         # feet per square seconds, std grav acceleration
+R = 1716.5          # feet square per second square per deg Rankine, specific gas constant of air
+F_to_R = 459.67     # to convert deg Fahrenheit to deg Rankine, R = F + 459.67
+a = -0.00357        # deg Rankine per feet, environmental lapse rate
+P_sl = 2116.22      # pounds per square feet, pressure at sea level
+rho_sl = 2.3769e-3  # slugs per cubic feet, density at sea level
+T_sl = 59           # deg Fahrenheit, Temperature at sea level
+T_trop = -69.7      # deg Fahrenheit, Temperature at 36000 feet
+P_trop = 474.59       # pounds per square feet, pressure at 36000 feet
+rho_trop = 7.0864e-4  # slugs per cubic feet, density at 36000 feet
+
+def get_PTrho_given_altitude(h,g0,R,P_sl,rho_sl,F_to_R,a,T_sl,T_trop,P_trop,rho_trop):
+    if h < 36000 :
+        T1 = T_sl + F_to_R                     # deg Rankine, Temperature at sea level
+        T = T1 + a*h                         # deg Rankine, Temperature at h
+        P = P_sl * ( T / T1 )**(-1*g0/(R*a))              # pounds per square feet, Pressure at h
+        rho = rho_sl * ( T / T1 )**(-1*(g0/(R*a) + 1))    # slug per cubic fe   et, Density at h
+    
+    elif h >= 36000 and h < 82000 :          # isotherml region of stratosphere
+        h0 = 36000                           # feet, altitude at tropopause
+        T = T_trop + F_to_R                   # deg Rankine, Temperature at 36000 feet
+        P = P_trop * m.e**(-1*g0*(h - h0)/(R*T))        # pounds per square feet, Pressure at h
+        rho = rho_trop * m.e**(-1*g0*(h - h0)/(R*T))    # slug per feet cube, Density at h
+    
+    return [P, T - F_to_R, rho]     #return Pressure in lb/ft2, Temperature in degF and Density in slugs/ft3
+
+
+# Maneuverability and Gusts
+n_max = 3.8     # maximum load factor
+b = 30          # ft, wing span
+S = 157.5       # ft^2, planform area
+CL_alpha = 4.65 # radians-1, rate of CL over angle of attack
+CL_max = 1.4    # max lift coefficient
+W = 2400        # lbf, weight of airport
+h1 = 10000      # ft, altitude
+
+rho_1 = get_PTrho_given_altitude(h1,g0,R,P_sl,rho_sl,F_to_R,a,T_sl,T_trop,P_trop,rho_trop)[2]
+# maneuver velocity
+V_man = ( (2*n_max*W)/(rho_1*CL_max*S) )**0.5
+print("Maneuver velocity at 10,000 ft altitude / ft.s-1 :", V_man)
+
+# at SLUF, n = 1, h = 10K ft
+n = 1
+V_true = 175        # ft/s, true airspeed
+V_gust_max = (n_max - 1)*(2*W/S)/(rho_1*V_true*CL_alpha)
+print("Maximum upward gust velocity at 10,000 ft altitude / ft.s-1 :", V_gust_max)
